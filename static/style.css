@@ -13,15 +13,39 @@
 }
 
 .price {
-    font-size: 1.2em;
-    color: #27ae60;
-    font-weight: bold;
-    margin: 10px 0;
+    font-size: 1.3em;
+    color: #2ecc71;
+    font-weight: 600;
+    margin: 12px 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    display: inline-block;
+}
+
+.specs {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
 }
 
 .specs ul {
     list-style: none;
-    padding-left: 20px;
+    padding: 0;
+    margin: 0;
+}
+
+.specs li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.specs li:last-child {
+    border-bottom: none;
 }
 
 blockquote {
@@ -42,8 +66,15 @@ blockquote {
     border-radius: 20px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     z-index: 1000;
-    display: flex;
+    display: none; /* Изначально скрыт */
     align-items: center;
+    transition: opacity 0.3s ease-out;
+    opacity: 1;
+}
+
+.typing-indicator.hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .typing-animation {
@@ -144,10 +175,18 @@ blockquote {
 
 .component-card {
     background: white;
-    padding: 15px;
-    margin: 10px 0;
-    border-left: 4px solid #3498db;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin: 15px 0;
+    border-radius: 12px;
+    border-left: 5px solid #3498db;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+.component-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }
 
 .spec-key {
@@ -156,9 +195,12 @@ blockquote {
 }
 
 .description {
-    margin-top: 10px;
-    color: #7f8c8d;
     font-style: italic;
+    color: #666;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 15px;
 }
 
 .typing-dot {
@@ -205,4 +247,37 @@ blockquote {
     flex-grow: 1;
     overflow-y: auto;
     padding-bottom: 50px; /* Место для индикатора */
+}
+
+/* Анимации для элементов */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Стили для эмодзи */
+.emoji {
+    font-size: 1.2em;
+    margin-right: 8px;
+}
+
+/* Улучшенные стили для кнопок */
+.btn {
+    padding: 10px 20px;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
