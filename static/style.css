@@ -1,0 +1,176 @@
+.category {
+    margin: 2em 0;
+    padding: 1em;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.component {
+    margin: 1.5em 0;
+    padding: 1em;
+    border-left: 4px solid #007bff;
+    background: white;
+}
+
+.price {
+    font-size: 1.2em;
+    color: #27ae60;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.specs ul {
+    list-style: none;
+    padding-left: 20px;
+}
+
+blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 3px solid #6c757d;
+    background: #f1f3f5;
+}
+
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: #f1f3f5;
+    border-radius: 15px;
+    width: fit-content;
+    margin: 10px 0;
+    max-width: 100px;
+}
+
+.typing-animation {
+    display: flex;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: #007bff;
+    border-radius: 50%;
+    animation: typing 1.4s infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+}
+
+.hidden {
+    display: none;
+}
+
+.chat-container {
+    scroll-behavior: smooth;
+}
+
+.chat-message {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    margin: 1em 0;
+}
+
+.chat-message h1 { 
+    font-size: 1.8em;
+    margin: 1em 0 0.5em;
+    color: #2c3e50;
+}
+
+.chat-message h2 {
+    font-size: 1.5em;
+    margin: 1em 0 0.5em;
+    color: #34495e;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 0.3em;
+}
+
+.chat-message h3 {
+    font-size: 1.2em;
+    margin: 1em 0 0.5em;
+    color: #2980b9;
+}
+
+.chat-message ul {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.chat-message blockquote {
+    border-left: 4px solid #ddd;
+    margin: 0.5em 0;
+    padding: 0.5em 1em;
+    background: #f8f9fa;
+}
+
+.chat-message hr {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 1em 0;
+}
+
+.bot-response {
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.category-header h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.category-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.category-section h3 {
+    color: #34495e;
+    margin-bottom: 15px;
+}
+
+.component-card {
+    background: white;
+    padding: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.spec-key {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.description {
+    margin-top: 10px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background: #3498db;
+    border-radius: 50%;
+    animation: typing 1s infinite;
+}
+
+.message {
+    white-space: pre-wrap;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+}
