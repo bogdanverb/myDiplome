@@ -24,6 +24,7 @@
             margin: 50px auto;
         }
         .chat-box {
+            position: relative;
             background: #fff;
             color: #333;
             padding: 20px;
@@ -41,18 +42,27 @@
         .message.user {
             background-color: #e9f5ff;
             align-self: flex-end;
+            margin-left: auto;
         }
         .message.bot {
             background-color: #f0f0f0;
             align-self: flex-start;
+            margin-right: auto;
         }
         .chat-input {
             border-radius: 50px;
         }
         .typing-indicator {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
             display: flex;
             align-items: center;
-            margin-top: 10px;
         }
         .typing-indicator.hidden {
             display: none;
@@ -77,6 +87,39 @@
                 opacity: 1;
             }
         }
+        .chat-wrapper {
+            position: relative;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            margin-bottom: 10px;
+            background: #fff;
+            border-radius: 10px;
+            position: relative;
+        }
+        
+        .messages-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .typing-indicator {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            margin: 10px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -84,15 +127,16 @@
         <div class="text-center mb-4">
             <h2>Чат-бот для комп'ютерних комплектуючих</h2>
         </div>
-        <div id="chat-box" class="chat-box d-flex flex-column chat-messages"></div>
-        <!-- Добавляем индикатор набора -->
-        <div id="typing-indicator" class="typing-indicator hidden">
-            <div class="typing-animation">
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
+        <div class="chat-box" id="chat-box">
+            <!-- Индикатор набора текста -->
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <div class="typing-animation">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                <span>Бот друкує...</span>
             </div>
-            <span>Бот печатает...</span>
         </div>
         <form id="chat-form" class="mt-3">
             <div class="input-group">
@@ -109,6 +153,18 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
+        // Генерируем уникальный ID сессии
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Получаем или создаем ID сессии
+        let sessionId = localStorage.getItem('chat_session_id');
+        if (!sessionId) {
+            sessionId = generateSessionId();
+            localStorage.setItem('chat_session_id', sessionId);
+        }
+        
         $('#chat-form').on('submit', function(e) {
             e.preventDefault();
             var userMessage = $('#message').val().trim();
@@ -118,30 +174,40 @@
             $('#chat-box').append('<div class="message user"><strong>Ви:</strong> ' + userMessage + '</div>');
             $('#message').val('');
             
-            // Показать индикатор набора
+            // Показуємо індикатор набору
             toggleTyping(true);
 
-            // Відправка запиту до бекенду
-            $.post('/ask', { message: userMessage }, function(data) {
-                // Скрыть индикатор набора
-                toggleTyping(false);
+            // Відправка запиту до бекенду з ID сессии
+            $.ajax({
+                url: '/ask',
+                method: 'POST',
+                data: { 
+                    message: userMessage 
+                },
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader('X-Session-ID', sessionId);
+                },
+                success: function(data) {
+                    // Ховаємо індикатор набору
+                    toggleTyping(false);
 
-                // Відображення відповіді бота
-                $('#chat-box').append('<div class="message bot"><strong>Бот:</strong> ' + data.response + '</div>');
-                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+                    // Відображення відповіді бота
+                    $('#chat-box').append('<div class="message bot"><strong>Бот:</strong> ' + data.response + '</div>');
+                    $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+                }
             });
         });
 
-        // Функция автоскролла
+        // Функція автоскролу
         function smoothScrollToBottom() {
-            const chatContainer = document.querySelector('.chat-container');
-            chatContainer.scrollTo({
-                top: chatContainer.scrollHeight,
+            const chatBox = document.getElementById('chat-box');
+            chatBox.scrollTo({
+                top: chatBox.scrollHeight,
                 behavior: 'smooth'
             });
         }
 
-        // Показать/скрыть индикатор набора
+        // Показати/сховати індикатор набору
         function toggleTyping(show) {
             const indicator = document.getElementById('typing-indicator');
             indicator.classList.toggle('hidden', !show);

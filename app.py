@@ -4,6 +4,8 @@ import mysql.connector
 import openai
 import json
 from config import MYSQL_CONFIG, OPENAI_API_KEY
+import requests
+from datetime import datetime, timedelta
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -343,17 +345,17 @@ def format_response(components_data):
     # Форматирование каждой категории
     for cat_key, (cat_name, components) in categories.items():
         if components:
-            response.append(f"\n## {cat_name}\n")
+            response.append(f"\n## {cat_name}\н")
             for comp in components:
                 response.append(format_component_details(comp))
-                response.append("\n---\n")
+                response.append("\н---\н")
     
     # Добавление итогов
-    response.append("\n### 📊 Общая статистика:\n")
+    response.append("\н### 📊 Общая статистика:\н")
     for cat, count in components_data["inventory"]["stats"]["by_type"].items():
-        response.append(f"• {categories.get(cat, (cat,))[0]}: {count}\n")
+        response.append(f"• {categories.get(cat, (cat,))[0]}: {count}\н")
     
-    return "\n".join(response)
+    return "\н".join(response)
 
 def format_component_details(component):
     """Форматирует детали отдельного компонента"""
@@ -367,7 +369,7 @@ def format_component_details(component):
 > {component['description']}"""
 
 def format_specifications(specs):
-    return "\n".join([f"• {key.title()}: **{value}**" for key, value in specs.items()])
+    return "\н".join([f"• {key.title()}: **{value}**" for key, value in specs.items()])
 
 def format_bot_response(components_data):
     response = """
@@ -416,66 +418,272 @@ def format_bot_response(components_data):
     response += "</div>"
     return response
 
-def format_db_to_text():
-    """Форматирует все данные из БД в текстовый формат для ИИ"""
-    data = prepare_data_for_ai()
-    text = "Доступные компьютерные комплектующие:\n\n"
+# Глобальные переменные для кеширования курсов валют
+exchange_rates = {}
+last_rates_update = None
+UPDATE_INTERVAL = timedelta(hours=1)  # Обновлять курсы каждый час
+
+def update_exchange_rates():
+    """Получает актуальные курсы валют через API MonoBank"""
+    global exchange_rates, last_rates_update
     
-    # Группируем по категориям
-    categories = {}
-    for comp in data["inventory"]["components"]:
-        cat = comp["type"]
-        if cat not in categories:
-            categories[cat] = []
-        categories[cat].append(comp)
+    try:
+        # Используем API MonoBank для получения актуальных курсов
+        response = requests.get('https://api.monobank.ua/bank/currency')
+        if response.status_code == 200:
+            rates = response.json()
+            exchange_rates = {}
+            
+            # USD/UAH (840/980)
+            usd_rate = next((rate for rate in rates if rate['currencyCodeA'] == 840 and rate['currencyCodeB'] == 980), None)
+            # EUR/UAH (978/980)
+            eur_rate = next((rate for rate in rates if rate['currencyCodeA'] == 978 and rate['currencyCodeB'] == 980), None)
+            
+            if usd_rate and eur_rate:
+                # Сохраняем курсы
+                exchange_rates['USD_UAH'] = usd_rate['rateCross'] if 'rateCross' in usd_rate else usd_rate['rateSell']
+                exchange_rates['EUR_UAH'] = eur_rate['rateCross'] if 'rateCross' in eur_rate else eur_rate['rateSell']
+                
+                # Обратные курсы
+                exchange_rates['UAH_USD'] = 1 / exchange_rates['USD_UAH']
+                exchange_rates['UAH_EUR'] = 1 / exchange_rates['EUR_UAH']
+                
+                # Кросс-курс EUR/USD
+                exchange_rates['EUR_USD'] = exchange_rates['EUR_UAH'] / exchange_rates['USD_UAH']
+                exchange_rates['USD_EUR'] = 1 / exchange_rates['EUR_USD']
+                
+                last_rates_update = datetime.now()
+                print(f"Successfully updated exchange rates at {last_rates_update}: {exchange_rates}")
+                return True
+            
+    except Exception as e:
+        print(f"Error updating exchange rates: {e}")
     
-    # Форматируем каждую категорию
-    for cat, components in categories.items():
-        text += f"\n{cat}:\n"
-        for comp in components:
-            text += f"""- {comp['name']}
-  Цена: ${comp['price']}
-  Характеристики: {', '.join([f'{k}: {v}' for k, v in comp['specs'].items()])}
-  Описание: {comp['description']}\n"""
+    # Если не удалось получить курсы, используем резервные значения
+    exchange_rates = {
+        'USD_UAH': 41.24,
+        'EUR_UAH': 44.72,
+        'EUR_USD': 1.08,
+        'USD_EUR': 0.92,
+        'UAH_USD': 0.024,
+        'UAH_EUR': 0.022
+    }
+    print(f"Using fallback exchange rates: {exchange_rates}")
+    return False
+
+def get_current_rates_info():
+    """Возвращает строку с информацией о текущих курсах валют"""
+    update_exchange_rates()  # Обновляем курсы
     
-    return text
+    if not exchange_rates:
+        return "На жаль, не вдалося отримати актуальні курси валют"
+    
+    return f"""💰 Поточні курси валют:
+
+USD/UAH: {exchange_rates['USD_UAH']:.2f} грн
+EUR/UAH: {exchange_rates['EUR_UAH']:.2f} грн
+EUR/USD: {exchange_rates['EUR_USD']:.2f}
+
+Останнє оновлення: {last_rates_update.strftime('%Y-%m-%d %H:%M:%S')}"""
+
+def handle_currency_query(message):
+    """Обрабатывает запросы о курсах валют"""
+    if any(keyword in message.lower() for keyword in ['курс', 'dollar', 'долар', 'євро', 'евро', 'валют']):
+        # Принудительно обновляем курсы перед ответом
+        update_exchange_rates()
+        return format_currency_response()
+    return None
+
+def format_currency_response():
+    """Форматирует ответ с курсами валют"""
+    if not exchange_rates:
+        return "На жаль, не вдалося отримати актуальні курси валют"
+    
+    try:
+        return f"""💰 Поточні курси валют:
+
+1 USD = {exchange_rates['USD_UAH']:.2f} UAH
+1 EUR = {exchange_rates['EUR_UAH']:.2f} UAH
+1 EUR = {exchange_rates['EUR_USD']:.2f} USD
+
+⏰ Останнє оновлення: {last_rates_update.strftime('%H:%M:%S')}"""
+    except Exception as e:
+        print(f"Error formatting currency response: {e}")
+        return "Помилка форматування курсів валют"
+
+def get_exchange_rate(from_currency, to_currency):
+    """Получает актуальный курс валют с автоматическим обновлением"""
+    global last_rates_update
+    
+    # Проверяем, нужно ли обновить курсы
+    if not last_rates_update or datetime.now() - last_rates_update > UPDATE_INTERVAL:
+        update_exchange_rates()
+    
+    # Возвращаем курс или значение по умолчанию
+    rate_key = f"{from_currency}_{to_currency}"
+    return exchange_rates.get(rate_key, 37.5)  # Значение по умолчанию если API недоступен
+
+def format_price(price_usd):
+    """Форматирует цену во всех поддерживаемых валютах"""
+    usd_price = float(price_usd)
+    rates = {
+        'UAH': get_exchange_rate('USD', 'UAH'),
+        'EUR': get_exchange_rate('USD', 'EUR'),
+    }
+    
+    return f"""💰 ${usd_price:.2f} 
+       ≈ {(usd_price * rates['UAH']):.2f} грн
+       ≈ {(usd_price * rates['EUR']):.2f} EUR"""
+
+def parse_price_from_text(text):
+    """Парсит цену и валюту из текста пользователя"""
+    import re
+    
+    # Паттерны для различных форматов цен (исправлены)
+    patterns = {
+        'UAH': r'(\д+(?:\с*\д+)*)\с*(?:грн|гривень?|грв|uah|₴)',
+        'USD': r'\$?\с*(\д+(?:\с*\д+)*)\с*(?:usd|долларов|доларів|баксов|баксів|\$)',
+        'EUR': r'(\д+(?:\с*\д+)*)\с*(?:євро|евро|euro|eur|€)'  # исправлен символ д на d
+    }
+    
+    for currency, pattern in patterns.items():
+        if match := re.search(pattern, text, re.IGNORECASE):
+            amount = float(match.group(1).replace(' ', ''))
+            return amount, currency
+    
+    return None, None
+
+# Обновляем промпт с информацией о валютах
+SYSTEM_PROMPT = """Ви - консультант з комп'ютерних комплектуючих. 
+Ви ЗАВЖДИ відповідаєте УКРАЇНСЬКОЮ мовою і підтримуєте контекст розмови.
+
+ВАЖЛИВО щодо валют: 
+- При запитаннях про курси валют використовуйте ТІЛЬКИ актуальні дані
+- Показуйте курси у форматі: 1 USD = XX.XX UAH
+- Відповідайте ВИКЛЮЧНО на основі отриманих від API даних
+- Не вигадуйте курси самостійно
+
+{current_rates}
+
+Використовуйте тільки інформацію про товари, яка надана нижче:
+{db_content}
+
+Правила спілкування:
+1. Враховуйте бюджет користувача в будь-якій валюті
+2. Показуйте ціни у всіх доступних валютах
+3. При підборі збірки вказуйте загальну вартість у всіх валютах
+4. Якщо ціна перевищує бюджет - пропонуйте альтернативи
+
+Використовуйте емодзі:
+💰 - для цін та бюджету
+⚡ - для характеристик
+💻 - для загальної інформації
+🔧 - для сумісності
+💡 - для порад та рекомендацій
+⚠️ - для важливих зауважень"""
 
 # Головна сторінка із чат-інтерфейсом
 @app.route('/')
 def index():
     return render_template('index.html')
 
-SYSTEM_PROMPT = """Вы - консультант по компьютерным комплектующим. Используйте только информацию о товарах, которая предоставлена ниже.
+# Добавим словарь приветствий
+GREETINGS = {
+    "привет", "здравствуйте", "добрый день", "добрый вечер", "доброе утро",
+    "вітаю", "привіт", "добрий день", "добрий вечір", "добрий ранок", "доброго дня"
+}
 
-{db_content}
+# Добавим глобальный словарь для хранения истории диалогов
+conversation_history = {}
 
-Ваши задачи:
-1. Отвечать на вопросы о наличии и характеристиках товаров из списка выше
-2. Если пользователь спрашивает о конкретной категории товаров - показывать все товары этой категории
-3. Если запрос неясен - уточнять детали
-4. Если товара нет в списке - сообщать об этом
-5. Всегда форматировать ответы с использованием HTML
+def extract_budget_from_message(message):
+    """Извлекает бюджет и валюту из сообщения пользователя"""
+    import re
+    
+    # Паттерны для разных валют (исправлены)
+    patterns = {
+        'UAH': r'(\д+(?:\с*\д+)*)\с*(?:грн|гривень?|грв|uah|₴)',
+        'USD': r'\$?\с*(\д+(?:\с*\д+)*)\с*(?:usd|долларов|доларів|баксов|баксів|\$)',
+        'EUR': r'(\д+(?:\с*\д+)*)\с*(?:євро|евро|euro|eur|€)'  # исправлены символы д на d
+    }
+    
+    for currency, pattern in patterns.items():
+        if match := re.search(pattern, message.lower(), re.IGNORECASE):
+            amount = float(match.group(1).replace(' ', ''))
+            return amount, currency
+    
+    return None, None
 
-Используйте эмодзи:
-💻 - для общей информации
-💰 - для цен
-⚡ - для характеристик
-📝 - для описаний"""
+def convert_budget_to_usd(amount, from_currency):
+    """Конвертирует бюджет в USD для поиска компонентов"""
+    if from_currency == 'USD':
+        return amount
+    elif from_currency == 'UAH':
+        return amount / get_exchange_rate('USD', 'UAH')
+    elif from_currency == 'EUR':
+        return amount / get_exchange_rate('USD', 'EUR')
+    return amount
+
+def format_price_all_currencies(price_usd):
+    """Форматирует цену во всех поддерживаемых валютах"""
+    rates = {
+        'UAH': get_exchange_rate('USD', 'UAH'),
+        'EUR': get_exchange_rate('USD', 'EUR')
+    }
+    
+    return f"""💰 ${price_usd:.2f} | {(price_usd * rates['UAH'])::.2f} грн | {(price_usd * rates['EUR'])::.2f} EUR"""
 
 @app.route('/ask', methods=['POST'])
 def ask():
     user_message = request.form.get('message').strip()
+    session_id = request.cookies.get('session_id', 'default')
     
-    # Форматируем данные из БД для ИИ
-    db_content = format_db_to_text()
+    # Проверяем запрос о курсах валют
+    if any(keyword in user_message.lower() for keyword in ['курс', 'dollar', 'долар', 'євро', 'евро', 'валют']):
+        update_exchange_rates()  # Принудительно обновляем курсы
+        return jsonify({"response": format_currency_response()})
     
-    # Формируем промпт с актуальными данными
-    current_prompt = SYSTEM_PROMPT.format(db_content=db_content)
+    # Проверяем, не спрашивает ли пользователь о курсах валют
+    currency_response = handle_currency_query(user_message)
+    if (currency_response):
+        return jsonify({"response": currency_response})
+        
+    # Инициализируем историю для новой сессии
+    if session_id not in conversation_history:
+        conversation_history[session_id] = []
     
+    # Извлекаем бюджет из сообщения
+    budget, currency = extract_budget_from_message(user_message)
+    
+    # Если нашли бюджет, конвертируем его в USD для поиска
+    if budget:
+        budget_usd = convert_budget_to_usd(budget, currency)
+        # Добавляем информацию о бюджете в контекст
+        user_message += f"\нБюджет: {format_price_all_currencies(budget_usd)}"
+    
+    # Добавляем сообщение пользователя в историю
+    conversation_history[session_id].append({"role": "user", "content": user_message})
+    
+    if user_message.lower() in GREETINGS:
+        response = "Вітаю! Чим можу допомогти з вибором комп'ютерних комплектуючих?"
+        conversation_history[session_id].append({"role": "assistant", "content": response})
+        return jsonify({"response": response})
+    
+    # Получаем дані з БД і форматируем их с учетом валют
+    db_content = format_db_data_for_ai()
+    
+    # Формируем контекст с историей диалога
     messages = [
-        {"role": "system", "content": current_prompt},
-        {"role": "user", "content": f"Найди и покажи товары по запросу: {user_message}"}
+        {"role": "system", "content": SYSTEM_PROMPT.format(
+            db_content=db_content,
+            current_rates=f"Поточні курси валют:\н" +
+                         f"USD/UAH: {get_exchange_rate('USD', 'UAH')}\н" +
+                         f"USD/EUR: {get_exchange_rate('USD', 'EUR')}"
+        )}
     ]
+    
+    # Добавляем последние 5 сообщений из истории
+    messages.extend(conversation_history[session_id][-5:])
 
     try:
         response = openai.ChatCompletion.create(
@@ -485,12 +693,15 @@ def ask():
         )
         bot_response = response.choices[0].message['content'].strip()
         
-        # Если ответ пустой или содержит "не найдено"
-        if not bot_response or "не найдено" in bot_response.lower():
-            bot_response = "К сожалению, по вашему запросу ничего не найдено в базе данных"
+        # Если ответ пустой или содержит "не знайдено" (исправлен оператор в на in)
+        if not bot_response or "не знайдено" in bot_response.lower():
+            bot_response = "На жаль, за вашим запитом нічого не знайдено в базі даних"
+        
+        # Добавляем ответ бота в историю
+        conversation_history[session_id].append({"role": "assistant", "content": bot_response})
             
     except Exception as e:
-        bot_response = f"Произошла ошибка: {e}"
+        bot_response = f"Сталася помилка: {e}"
 
     return jsonify({
         "response": bot_response

@@ -31,15 +31,19 @@ blockquote {
     background: #f1f3f5;
 }
 
+/* Удалите или закомментируйте старые стили typing-indicator если они есть */
+
 .typing-indicator {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 10px 20px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 1000;
     display: flex;
     align-items: center;
-    padding: 10px;
-    background: #f1f3f5;
-    border-radius: 15px;
-    width: fit-content;
-    margin: 10px 0;
-    max-width: 100px;
 }
 
 .typing-animation {
@@ -173,4 +177,32 @@ blockquote {
 .chat-messages {
     flex-grow: 1;
     overflow-y: auto;
+}
+
+.message.bot {
+    background-color: #f0f0f0;
+    align-self: flex-start;
+    margin-bottom: 10px;
+}
+
+.message.user {
+    background-color: #e3f2fd;
+    align-self: flex-end;
+    margin-bottom: 10px;
+}
+
+.chat-box {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    overflow-y: auto;
+    padding-bottom: 60px; /* Оставляем место для индикатора */
+}
+
+.messages-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-bottom: 50px; /* Место для индикатора */
 }
