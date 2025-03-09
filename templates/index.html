@@ -182,10 +182,12 @@
             <h2>💻 Чат-бот для комп'ютерних комплектуючих</h2>
         </div>
         <div class="chat-wrapper">
-            <div class="messages-wrapper">
-                <div id="chat-messages" class="chat-messages"></div>
+            <div class="messages-wrapper" id="messages-wrapper">
+                <div id="chat-messages" class="chat-messages">
+                    <!-- повідомлення будуть додаватися тут -->
+                </div>
             </div>
-            <div id="typing-indicator" class="typing-indicator hidden">
+            <div id="typing-indicator" class="typing-indicator">
                 <div class="typing-animation">
                     <div class="dot"></div>
                     <div class="dot"></div>
@@ -227,15 +229,13 @@
             var userMessage = $('#message').val().trim();
             if(userMessage === '') return;
             
-            // Відображення повідомлення користувача
+            // Відображення повідомлення користувача і прокрутка
             appendMessage('user', '<strong>Ви:</strong> ' + userMessage);
             $('#message').val('');
             
-            // Показываем индикатор и запоминаем время начала
             const requestStartTime = Date.now();
             toggleTyping(true);
-
-            // Відправка запиту до бекенду з ID сессии
+            
             $.ajax({
                 url: '/ask',
                 method: 'POST',
@@ -247,23 +247,19 @@
                     xhr.setRequestHeader('X-Session-ID', sessionId);
                 },
                 success: function(data) {
-                    // Минимальное время отображения индикатора (500ms)
                     const minTypingTime = 500;
                     const elapsed = Date.now() - requestStartTime;
                     
                     if (elapsed < minTypingTime) {
-                        // Если прошло меньше минимального времени, ждем
                         setTimeout(() => {
                             toggleTyping(false);
                             appendMessage('bot', '<strong>Бот:</strong> ' + data.response);
                         }, minTypingTime - elapsed);
                     } else {
-                        // Иначе сразу скрываем и показываем ответ
                         toggleTyping(false);
                         appendMessage('bot', '<strong>Бот:</strong> ' + data.response);
                     }
                     
-                    // Обновляем session_id если он изменился
                     if (data.session_id) {
                         sessionId = data.session_id;
                         document.cookie = `session_id=${sessionId};path=/;max-age=86400`;
@@ -276,13 +272,17 @@
             });
         });
 
-        // Функція автоскролу
-        function smoothScrollToBottom() {
-            const chatMessages = document.getElementById('chat-messages');
-            chatMessages.scrollTo({
-                top: chatMessages.scrollHeight,
-                behavior: 'smooth'
-            });
+        // Єдина функція для прокрутки
+        function scrollToBottom() {
+            const messagesWrapper = document.querySelector('.messages-wrapper');
+            if (messagesWrapper) {
+                setTimeout(() => {
+                    messagesWrapper.scrollTo({
+                        top: messagesWrapper.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }, 100);
+            }
         }
 
         // Показати/сховати індикатор набору
@@ -297,32 +297,13 @@
             }
         }
 
-        // Обработка отправки сообщения
-        async function sendMessage() {
-            // ...existing code...
-            toggleTyping(true);  // Показываем индикатор
-            
-            try {
-                const response = await fetch('/ask', {
-                    // ...existing code...
-                });
-                
-                // ... обработка ответа ...
-                
-                toggleTyping(false);  // Скрываем индикатор
-                smoothScrollToBottom();  // Скроллим к новому сообщению
-            } catch (error) {
-                toggleTyping(false);
-            }
-        }
-
-        // Обновленный скрипт для анимаций
+        // Оновлена функція додавання повідомлень
         function appendMessage(type, content) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type} animate__animated animate__fadeInUp`;
             messageDiv.innerHTML = content;
             document.getElementById('chat-messages').appendChild(messageDiv);
-            smoothScrollToBottom();
+            scrollToBottom();
         }
     </script>
 </body>

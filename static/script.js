@@ -54,15 +54,24 @@ async function sendMessage() {
     }
 }
 
+// Оновлена функція додавання повідомлень
 function appendMessage(type, content) {
-    const messagesDiv = document.querySelector('.chat-messages');
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
-    messageDiv.innerHTML = content.replace(/\n/g, '<br>');
-    messagesDiv.appendChild(messageDiv);
+    messageDiv.className = `message ${type} animate__animated animate__fadeInUp`;
+    messageDiv.innerHTML = content;
+    document.getElementById('chat-messages').appendChild(messageDiv);
+    scrollToBottom();
 }
 
+// Оновлена функція прокрутки
 function scrollToBottom() {
-    const chatContainer = document.querySelector('.chat-container');
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    const messagesWrapper = document.querySelector('.messages-wrapper');
+    if (messagesWrapper) {
+        setTimeout(() => {
+            messagesWrapper.scrollTo({
+                top: messagesWrapper.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+    }
 }

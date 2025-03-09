@@ -229,6 +229,7 @@ blockquote {
 .chat-messages {
     display: flex;
     flex-direction: column;
+    min-height: 100%;
 }
 
 .chat-messages {
@@ -302,10 +303,46 @@ blockquote {
 
 .chat-wrapper {
     position: relative;
+    height: 600px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    height: 600px;
-    margin-bottom: 20px;
+}
+
+.messages-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    padding-bottom: 60px;
+    scroll-behavior: smooth;
+    height: calc(100% - 60px); /* Віднімаємо висоту індикатора набору */
+}
+
+/* Забезпечуємо плавну прокрутку для всіх браузерів */
+* {
+    scroll-behavior: smooth;
+}
+
+/* Стилізація скролбара */
+.messages-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages-wrapper::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+}
+
+.messages-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.messages-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 
 .messages-wrapper {
