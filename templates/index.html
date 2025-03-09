@@ -211,18 +211,17 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-        // Генерируем уникальный ID сессии
+        // Функция для генерации уникального ID сессии
         function generateSessionId() {
-            return 'session_' + Math.random().toString(36).substr(2, 9);
+            return 'session_' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+            );
         }
         
-        // Получаем или создаем ID сессии
-        let sessionId = localStorage.getItem('chat_session_id');
-        if (!sessionId) {
-            sessionId = generateSessionId();
-            localStorage.setItem('chat_session_id', sessionId);
-        }
-        
+        // Получаем session_id из cookie при загрузке страницы
+        let sessionId = document.cookie.split('; ').find(row => row.startsWith('session_id='));
+        sessionId = sessionId ? sessionId.split('=')[1] : generateSessionId();
+
         $('#chat-form').on('submit', function(e) {
             e.preventDefault();
             var userMessage = $('#message').val().trim();
@@ -241,7 +240,8 @@
                 url: '/ask',
                 method: 'POST',
                 data: { 
-                    message: userMessage 
+                    message: userMessage,
+                    session_id: sessionId
                 },
                 beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-Session-ID', sessionId);
@@ -261,6 +261,12 @@
                         // Иначе сразу скрываем и показываем ответ
                         toggleTyping(false);
                         appendMessage('bot', '<strong>Бот:</strong> ' + data.response);
+                    }
+                    
+                    // Обновляем session_id если он изменился
+                    if (data.session_id) {
+                        sessionId = data.session_id;
+                        document.cookie = `session_id=${sessionId};path=/;max-age=86400`;
                     }
                 },
                 error: function() {

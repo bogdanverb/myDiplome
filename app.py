@@ -1,5 +1,6 @@
 # app.py
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, session, make_response
+import uuid
 import mysql.connector
 import openai
 import json
@@ -8,6 +9,21 @@ import requests
 from datetime import datetime, timedelta
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+app.secret_key = 'your-secret-key-here'  # Замените на случайный секретный ключ
+
+# Словарь для хранения историй диалогов по сессиям
+conversation_histories = {}
+
+# Время жизни сессии (24 часа)
+SESSION_LIFETIME = timedelta(hours=24)
+
+def cleanup_old_sessions():
+    """Очистка старых сессий"""
+    current_time = datetime.now()
+    for session_id in list(conversation_histories.keys()):
+        last_activity = conversation_histories[session_id].get('last_activity')
+        if last_activity and (current_time - last_activity) > SESSION_LIFETIME:
+            del conversation_histories[session_id]
 
 # Встановлюємо ключ OpenAI API
 openai.api_key = OPENAI_API_KEY
@@ -484,7 +500,7 @@ USD/UAH: {exchange_rates['USD_UAH']:.2f} грн
 EUR/UAH: {exchange_rates['EUR_UAH']:.2f} грн
 EUR/USD: {exchange_rates['EUR_USD']:.2f}
 
-Останнє оновлення: {last_rates_update.strftime('%Y-%m-%d %H:%M:%S')}"""
+Останнє оновлення: {last_rates_update.strftime('%Y-%m-%d %H:%М:%S')}"""
 
 def handle_currency_query(message):
     """Обрабатывает запросы о курсах валют"""
@@ -508,7 +524,7 @@ def format_currency_response():
 1 EUR = {exchange_rates['EUR_UAH']:.2f} UAH
 1 EUR = {exchange_rates['EUR_USD']:.2f} USD
 
-⏰ Останнє оновлення: {last_rates_update.strftime('%H:%M:%S')}"""
+⏰ Останнє оновлення: {last_rates_update.strftime('%H:%М:%S')}"""
     except Exception as e:
         print(f"Error formatting currency response: {e}")
         return "Помилка форматування курсів валют"
@@ -582,16 +598,29 @@ SYSTEM_PROMPT = """Ви - консультант з комп'ютерних ко
 # Головна сторінка із чат-інтерфейсом
 @app.route('/')
 def index():
-    return render_template('index.html')
+    """Главная страница с созданием новой сессии"""
+    # Генерируем уникальный ID сессии
+    session_id = str(uuid.uuid4())
+    
+    # Создаем новый ответ
+    response = make_response(render_template('index.html'))
+    
+    # Устанавливаем cookie с session_id
+    response.set_cookie('session_id', session_id, max_age=86400)  # 24 часа
+    
+    # Инициализируем историю диалога для новой сессии
+    conversation_histories[session_id] = {
+        'messages': [],
+        'last_activity': datetime.now()
+    }
+    
+    return response
 
 # Добавим словарь приветствий
 GREETINGS = {
     "привет", "здравствуйте", "добрый день", "добрый вечер", "доброе утро",
     "вітаю", "привіт", "добрий день", "добрий вечір", "добрий ранок", "доброго дня"
 }
-
-# Добавим глобальный словарь для хранения истории диалогов
-conversation_history = {}
 
 def extract_budget_from_message(message):
     """Извлекает бюджет и валюту из сообщения пользователя"""
@@ -632,77 +661,100 @@ def format_price_all_currencies(price_usd):
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    user_message = request.form.get('message').strip()
-    session_id = request.cookies.get('session_id', 'default')
+    """Обработка запросов с учетом сессий"""
+    # Получаем ID сессии из cookie
+    session_id = request.cookies.get('session_id')
+    user_message = request.form.get('message', '').strip()
     
-    # Инициализируем историю для новой сессии
-    if session_id not in conversation_history:
-        conversation_history[session_id] = []
+    # Если сессия не существует или устарела, создаем новую
+    if not session_id or session_id not in conversation_histories:
+        session_id = str(uuid.uuid4())
+        conversation_histories[session_id] = {
+            'messages': [],
+            'last_activity': datetime.now()
+        }
     
-    # Проверяем, является ли запрос прямым вопросом о курсе валют
+    # Обновляем время последней активности
+    conversation_histories[session_id]['last_activity'] = datetime.now()
+    
+    # Очистка старых сессий
+    cleanup_old_sessions()
+    
+    # Получаем историю диалога для текущей сессии
+    session_history = conversation_histories[session_id]['messages']
+    
+    # Проверяем запрос о курсах валют
     if handle_currency_query(user_message):
         update_exchange_rates()
         currency_response = format_currency_response()
-        conversation_history[session_id].append({
-            "role": "assistant", 
+        session_history.append({
+            "role": "assistant",
             "content": currency_response
         })
-        return jsonify({"response": currency_response})
+        return jsonify({"response": currency_response, "session_id": session_id})
     
+    # Обработка приветствий
+    if user_message.lower() in GREETINGS:
+        greeting_response = "Вітаю! Чим можу допомогти з вибором комп'ютерних комплектуючих?"
+        session_history.append({"role": "user", "content": user_message})
+        session_history.append({"role": "assistant", "content": greeting_response})
+        return jsonify({"response": greeting_response, "session_id": session_id})
+
     # Извлекаем бюджет из сообщения
     budget, currency = extract_budget_from_message(user_message)
     
-    # Если нашли бюджет, конвертируем его в USD для поиска
-    if budget:
-        budget_usd = convert_budget_to_usd(budget, currency)
-        # Добавляем информацию о бюджете в контекст
-        user_message += f"\нБюджет: {format_price_all_currencies(budget_usd)}"
-    
     # Добавляем сообщение пользователя в историю
-    conversation_history[session_id].append({"role": "user", "content": user_message})
+    session_history.append({"role": "user", "content": user_message})
     
-    if user_message.lower() in GREETINGS:
-        response = "Вітаю! Чим можу допомогти з вибором комп'ютерних комплектуючих?"
-        conversation_history[session_id].append({"role": "assistant", "content": response})
-        return jsonify({"response": response})
-    
-    # Получаем дані з БД і форматируем их с учетом валют
-    db_content = format_db_data_for_ai()
-    
-    # Формируем контекст с историей диалога
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(
-            db_content=db_content,
-            current_rates=f"Поточні курси валют:\н" +
-                         f"USD/UAH: {get_exchange_rate('USD', 'UAH')}\н" +
-                         f"USD/EUR: {get_exchange_rate('USD', 'EUR')}"
-        )}
-    ]
-    
-    # Добавляем последние 5 сообщений из истории
-    messages.extend(conversation_history[session_id][-5:])
-
     try:
+        # Готовим контекст для AI
+        db_content = format_db_data_for_ai()
+        
+        # Если есть бюджет, добавляем информацию о нем
+        if budget:
+            budget_usd = convert_budget_to_usd(budget, currency)
+            user_message += f"\nБюджет: {format_price_all_currencies(budget_usd)}"
+        
+        # Формируем сообщения для API
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT.format(
+                db_content=db_content,
+                current_rates=f"Поточні курси валют:\n" +
+                            f"USD/UAH: {get_exchange_rate('USD', 'UAH')}\n" +
+                            f"USD/EUR: {get_exchange_rate('USD', 'EUR')}"
+            )}
+        ]
+        
+        # Добавляем историю диалога
+        messages.extend(session_history[-10:])  # Последние 5 пар сообщений
+        
+        # Получаем ответ от API
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7
         )
+        
         bot_response = response.choices[0].message['content'].strip()
         
-        # Если ответ пустой или содержит "не знайдено" (исправлен оператор в на in)
-        if not bot_response or "не знайдено" in bot_response.lower():
-            bot_response = "На жаль, за вашим запитом нічого не знайдено в базі даних"
+        # Сохраняем ответ в историю
+        session_history.append({"role": "assistant", "content": bot_response})
         
-        # Добавляем ответ бота в историю
-        conversation_history[session_id].append({"role": "assistant", "content": bot_response})
+        # Обрезаем историю если она слишком длинная
+        if len(session_history) > 20:  # Храним последние 10 пар сообщений
+            conversation_histories[session_id]['messages'] = session_history[-20:]
             
+        return jsonify({
+            "response": bot_response,
+            "session_id": session_id
+        })
+        
     except Exception as e:
-        bot_response = f"Сталася помилка: {e}"
-
-    return jsonify({
-        "response": bot_response
-    })
+        print(f"Error processing request: {e}")
+        return jsonify({
+            "response": "Виникла помилка при обробці запиту. Спробуйте ще раз.",
+            "session_id": session_id
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
