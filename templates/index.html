@@ -50,16 +50,46 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
 
-        .chat-box {
+        .chat-wrapper {
+            position: relative;
+            height: 600px;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
-            height: 600px;
-            padding: 20px;
-            margin-bottom: 20px;
-            overflow-y: auto;
-            scroll-behavior: smooth;
-            position: relative;
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .messages-wrapper {
+            height: 100%;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 60px;
+        }
+
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .typing-indicator {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.3s ease;
+        }
+
+        .typing-indicator.visible {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .message {
@@ -119,21 +149,6 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .typing-indicator {
-            position: absolute;
-            left: 20px;
-            bottom: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 10px 20px;
-            border-radius: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            animation: slideUp 0.3s ease-out;
-            z-index: 1000;
-        }
-
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -166,12 +181,16 @@
         <div class="chat-header animate__animated animate__fadeInDown">
             <h2>💻 Чат-бот для комп'ютерних комплектуючих</h2>
         </div>
-        <div class="chat-box" id="chat-box">
-            <!-- Индикатор набора текста -->
+        <div class="chat-wrapper">
+            <div class="messages-wrapper">
+                <div id="chat-messages" class="chat-messages"></div>
+            </div>
             <div id="typing-indicator" class="typing-indicator hidden">
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
+                <div class="typing-animation">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
                 <span>Бот друкує...</span>
             </div>
         </div>
@@ -253,12 +272,11 @@
 
         // Функція автоскролу
         function smoothScrollToBottom() {
-            const chatBox = document.getElementById('chat-box');
-            const scrollOptions = {
-                top: chatBox.scrollHeight,
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.scrollTo({
+                top: chatMessages.scrollHeight,
                 behavior: 'smooth'
-            };
-            chatBox.scrollTo(scrollOptions);
+            });
         }
 
         // Показати/сховати індикатор набору
@@ -266,16 +284,11 @@
             const indicator = document.getElementById('typing-indicator');
             if (show) {
                 indicator.classList.remove('hidden');
-                indicator.style.display = 'flex';
+                indicator.classList.add('visible');
             } else {
+                indicator.classList.remove('visible');
                 indicator.classList.add('hidden');
-                setTimeout(() => {
-                    if (indicator.classList.contains('hidden')) {
-                        indicator.style.display = 'none';
-                    }
-                }, 300); // Задержка для анимации
             }
-            if (show) smoothScrollToBottom();
         }
 
         // Обработка отправки сообщения
@@ -302,7 +315,7 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type} animate__animated animate__fadeInUp`;
             messageDiv.innerHTML = content;
-            document.getElementById('chat-box').appendChild(messageDiv);
+            document.getElementById('chat-messages').appendChild(messageDiv);
             smoothScrollToBottom();
         }
     </script>

@@ -66,9 +66,14 @@ blockquote {
     border-radius: 20px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     z-index: 1000;
-    display: none; /* Изначально скрыт */
+    display: none;
     align-items: center;
-    transition: opacity 0.3s ease-out;
+    gap: 8px;
+    transition: opacity 0.3s ease;
+}
+
+.typing-indicator.visible {
+    display: flex;
     opacity: 1;
 }
 
@@ -214,11 +219,24 @@ blockquote {
 
 .message {
     white-space: pre-wrap;
+    max-width: 80%;
+    margin: 10px 0;
+    padding: 15px;
+    border-radius: 15px;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.chat-messages {
+    display: flex;
+    flex-direction: column;
 }
 
 .chat-messages {
     flex-grow: 1;
     overflow-y: auto;
+    padding-bottom: 70px;
+    scroll-behavior: smooth;
+    padding: 20px;
 }
 
 .message.bot {
@@ -280,4 +298,20 @@ blockquote {
 .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.chat-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+    margin-bottom: 20px;
+}
+
+.messages-wrapper {
+    height: 100%;
+    overflow-y: auto;
+    padding: 20px;
+    padding-bottom: 60px; /* место для индикатора */
+    scroll-behavior: smooth;
 }
