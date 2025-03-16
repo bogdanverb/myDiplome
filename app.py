@@ -124,7 +124,22 @@ def get_performance_category(component):
         if price > 300: return "high-end"
         if price > 200: return "mid-range"
         return "budget"
-    # Добавить логику для других типов компонентов
+    elif component['type'] == 'GPU':
+        if price > 500: return "high-end"
+        if price > 300: return "mid-range"
+        return "budget"
+    elif component['type'] == 'RAM':
+        if price > 150: return "high-end"
+        if price > 100: return "mid-range"
+        return "budget"
+    elif component['type'] == 'SSD':
+        if price > 200: return "high-end"
+        if price > 100: return "mid-range"
+        return "budget"
+    elif component['type'] == 'HDD':
+        if price > 100: return "high-end"
+        if price > 50: return "mid-range"
+        return "budget"
     return "standard"
 
 def format_db_data_for_ai():
