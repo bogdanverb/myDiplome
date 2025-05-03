@@ -7,6 +7,7 @@ MYSQL_CONFIG = {
     'user': os.getenv('MYSQL_USER', 'root'),
     'password': os.getenv('MYSQL_PASSWORD', ''),
     'database': os.getenv('MYSQL_DATABASE', ''),
+    'port': int(os.getenv('MYSQL_PORT', 3306)),
     'raise_on_warnings': True
 }
 
