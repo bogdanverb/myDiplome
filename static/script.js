@@ -75,3 +75,9 @@ function scrollToBottom() {
         }, 100);
     }
 }
+
+// Додаємо плавний фокус на інпут при завантаженні
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('message');
+    if (input) input.focus();
+});

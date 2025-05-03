@@ -23,7 +23,14 @@
             font-family: 'Roboto', sans-serif;
             min-height: 100vh;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            overflow-x: hidden;
+            animation: gradientBG 10s ease-in-out infinite alternate;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
         }
 
         .chat-container {
@@ -174,20 +181,70 @@
             0%, 60%, 100% { transform: translateY(0); }
             30% { transform: translateY(-4px); }
         }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                max-width: 100%;
+                padding: 8px;
+                border-radius: 0;
+            }
+            .chat-header h2 {
+                font-size: 1.3em;
+            }
+            .chat-wrapper {
+                height: 70vh;
+                min-height: 350px;
+                border-radius: 10px;
+                padding: 0;
+            }
+            .chat-input-container {
+                padding: 8px;
+                border-radius: 10px;
+            }
+            .messages-wrapper {
+                padding: 10px;
+                padding-bottom: 60px;
+            }
+            .message {
+                font-size: 1em;
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chat-header h2 {
+                font-size: 1em;
+            }
+            .chat-wrapper {
+                height: 60vh;
+                min-height: 220px;
+            }
+            .chat-input {
+                font-size: 1em;
+                padding: 10px;
+            }
+            .btn-send {
+                padding: 8px 14px;
+                font-size: 0.95em;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="chat-container">
+    <div class="chat-container shadow-lg animate__animated animate__fadeIn">
         <div class="chat-header animate__animated animate__fadeInDown">
-            <h2>💻 Чат-бот для комп'ютерних комплектуючих</h2>
+            <h2>
+                <span class="emoji animate__animated animate__bounceIn">💻</span>
+                Чат-бот для комп'ютерних комплектуючих
+            </h2>
         </div>
         <div class="chat-wrapper">
-            <div class="messages-wrapper" id="messages-wrapper">
+            <div class="messages-wrapper" id="messages-wrapper" tabindex="0" aria-label="Чат повідомлення">
                 <div id="chat-messages" class="chat-messages">
                     <!-- повідомлення будуть додаватися тут -->
                 </div>
             </div>
-            <div id="typing-indicator" class="typing-indicator">
+            <div id="typing-indicator" class="typing-indicator" aria-live="polite">
                 <div class="typing-animation">
                     <div class="dot"></div>
                     <div class="dot"></div>
@@ -197,10 +254,10 @@
             </div>
         </div>
         <div class="chat-input-container animate__animated animate__fadeInUp">
-            <form id="chat-form" class="d-flex gap-2">
+            <form id="chat-form" class="d-flex gap-2 flex-nowrap flex-md-row flex-column">
                 <input type="text" id="message" class="form-control chat-input" placeholder="Введіть ваше повідомлення..." required>
                 <button type="submit" class="btn btn-send">
-                    Надіслати
+                    <span class="emoji">🚀</span> Надіслати
                 </button>
             </form>
         </div>
