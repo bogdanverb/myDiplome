@@ -15,7 +15,7 @@ MYSQL_CONFIG = {
 }
 
 # API ключ для OpenAI
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '#your_api_key')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Конфигурация безопасности
 SECURITY_CONFIG = {
