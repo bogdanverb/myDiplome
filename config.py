@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from datetime import timedelta
 
 # Загружаем переменные окружения из .env файла
