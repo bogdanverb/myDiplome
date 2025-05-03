@@ -1,9 +1,6 @@
 import os
 from datetime import timedelta
 
-# Загружаем переменные окружения из .env файла
-load_dotenv()
-
 # Конфигурация MySQL
 MYSQL_CONFIG = {
     'host': os.getenv('MYSQL_HOST', 'localhost'),
