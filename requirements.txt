@@ -3,5 +3,5 @@ openai==0.27.0
 requests>=2.31.0
 python-dateutil>=2.8.2
 flask==2.2.5
-werkzeug==2.2.3
+werkzeug>=2.2.3,<2.3.0
 
