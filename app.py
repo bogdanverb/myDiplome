@@ -34,7 +34,8 @@ def get_db_connection():
         host=MYSQL_CONFIG['host'],
         user=MYSQL_CONFIG['user'],
         password=MYSQL_CONFIG['password'],
-        database=MYSQL_CONFIG['database']
+        database=MYSQL_CONFIG['database'],
+        port=MYSQL_CONFIG['port']
     )
     return conn
 
