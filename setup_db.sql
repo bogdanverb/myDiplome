@@ -1,8 +1,8 @@
 -- setup_db.sql
 -- Створення бази даних та таблиці для зберігання даних про комп'ютерні комплектуючі
 
-CREATE DATABASE IF NOT EXISTS computer_parts_db;
-USE computer_parts_db;
+-- Для Codespaces/Docker: база має назву 'mydb'
+USE mydb;
 
 CREATE TABLE IF NOT EXISTS components (
     id INT AUTO_INCREMENT PRIMARY KEY,
