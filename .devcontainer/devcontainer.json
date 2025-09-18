@@ -1,0 +1,19 @@
+{
+  "name": "Python & PostgreSQL Codespace",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "web",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.pythonPath": "/usr/local/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  },
+  "forwardPorts": [5000, 5432],
+  "postCreateCommand": "pip install -r requirements.txt"
+}

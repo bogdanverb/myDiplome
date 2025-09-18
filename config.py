@@ -3,10 +3,10 @@ from datetime import timedelta
 
 # Конфигурация MySQL
 MYSQL_CONFIG = {
-    'host': os.getenv('MYSQL_HOST', 'localhost'),
+    'host': os.getenv('MYSQL_HOST', 'db'),
     'user': os.getenv('MYSQL_USER', 'root'),
-    'password': os.getenv('MYSQL_PASSWORD', ''),
-    'database': os.getenv('MYSQL_DATABASE', ''),
+    'password': os.getenv('MYSQL_PASSWORD', 'root'),
+    'database': os.getenv('MYSQL_DATABASE', 'mydb'),
     'port': int(os.getenv('MYSQL_PORT', 3306)),
     'raise_on_warnings': True
 }
