@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = 'your-secret-key-here'  # Замените на случайный секретный ключ
+app.debug = True
 
 # Словарь для хранения историй диалогов по сессиям
 conversation_histories = {}
