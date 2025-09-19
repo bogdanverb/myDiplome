@@ -1,6 +1,7 @@
 # app.py
 
 from flask import Flask, render_template, request, jsonify, url_for, session, make_response
+from pc_select_utils import select_components_for_budget, format_selected_pc_response
 import uuid
 import sqlite3
 import openai
@@ -667,6 +668,18 @@ def format_price_all_currencies(price_usd):
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    # Rate-limit: не більше 5 запитів на сесію за 1 хвилину
+    now = datetime.now()
+    if 'rate_limit' not in conversation_histories[session_id]:
+        conversation_histories[session_id]['rate_limit'] = []
+    # Видаляємо старі запити
+    conversation_histories[session_id]['rate_limit'] = [t for t in conversation_histories[session_id]['rate_limit'] if (now-t).total_seconds() < 60]
+    if len(conversation_histories[session_id]['rate_limit']) >= 5:
+        return jsonify({
+            "response": "⏳ Ви перевищили ліміт запитів (5/хв). Спробуйте пізніше.",
+            "session_id": session_id
+        }), 429
+    conversation_histories[session_id]['rate_limit'].append(now)
     """Обработка запросов с учетом сессий"""
     # Получаем ID сессии из cookie
     session_id = request.cookies.get('session_id')
@@ -699,12 +712,14 @@ def ask():
         })
         return jsonify({"response": currency_response, "session_id": session_id})
     
-    # Обработка приветствий
-    if user_message.lower() in GREETINGS:
-        greeting_response = "Вітаю! Чим можу допомогти з вибором комп'ютерних комплектуючих?"
-        session_history.append({"role": "user", "content": user_message})
-        session_history.append({"role": "assistant", "content": greeting_response})
-        return jsonify({"response": greeting_response, "session_id": session_id})
+    # Вітальне повідомлення-інструкція при першому зверненні
+    if not session_history:
+        welcome_msg = (
+            "Доброго дня! 😊 Я ваш онлайн ШІ консультант. Можу підбирати, порівнювати, збирати ПК, рекомендувати комплектуючі та давати поради. "
+            "Вкажіть ваш бюджет або опишіть, що саме вам потрібно — і я допоможу!"
+        )
+        session_history.append({"role": "assistant", "content": welcome_msg})
+        return jsonify({"response": welcome_msg, "session_id": session_id})
 
     # Извлекаем бюджет из сообщения
     budget, currency = extract_budget_from_message(user_message)
@@ -713,15 +728,16 @@ def ask():
     session_history.append({"role": "user", "content": user_message})
     
     try:
-        # Готовим контекст для AI
+        # Готуємо контекст для AI
         db_content = format_db_data_for_ai()
-        
-        # Если есть бюджет, добавляем информацию о нем
+
+        # Якщо є бюджет, підбираємо компоненти максимально близько до бюджету
+        selected_components, total_price = select_components_for_budget(db_content, budget, currency)
         if budget:
             budget_usd = convert_budget_to_usd(budget, currency)
             user_message += f"\nБюджет: {format_price_all_currencies(budget_usd)}"
-        
-        # Формируем сообщения для API
+
+        # Формуємо повідомлення для AI
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT.format(
                 db_content=db_content,
@@ -730,26 +746,23 @@ def ask():
                             f"USD/EUR: {get_exchange_rate('USD', 'EUR')}"
             )}
         ]
-        
-        # Добавляем историю диалога
-        messages.extend(session_history[-10:])  # Последние 5 пар сообщений
-        
-        # Получаем ответ от API
+        messages.extend(session_history[-10:])
+
+        # Отримуємо відповідь від AI
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7
         )
-        
         bot_response = response.choices[0].message['content'].strip()
-        
-        # Сохраняем ответ в историю
+
+        # Якщо є підібрані компоненти — форматувати відповідь красиво
+        if selected_components:
+            bot_response = format_selected_pc_response(selected_components, total_price, budget)
+
         session_history.append({"role": "assistant", "content": bot_response})
-        
-        # Обрезаем историю если она слишком длинная
-        if len(session_history) > 20:  # Храним последние 10 пар сообщений
+        if len(session_history) > 20:
             conversation_histories[session_id]['messages'] = session_history[-20:]
-            
         return jsonify({
             "response": bot_response,
             "session_id": session_id
