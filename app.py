@@ -139,7 +139,7 @@ def get_performance_category(component):
 
 def format_db_data_for_ai():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
     structured_data = {
         "components_catalog": {
@@ -245,7 +245,7 @@ def format_db_data_for_ai():
 
 def prepare_data_for_ai():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
     try:
         cursor.execute("SELECT * FROM components")
