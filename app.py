@@ -668,6 +668,19 @@ def format_price_all_currencies(price_usd):
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    # Перевірка наявності ключа OpenAI
+    if not OPENAI_API_KEY or len(OPENAI_API_KEY) < 10:
+        return jsonify({
+            "response": "❌ Відсутній або некоректний ключ OpenAI. Зверніться до адміністратора.",
+            "session_id": session_id
+        }), 500
+    # Перевірка наявності бази даних
+    import os
+    if not os.path.exists(SQLITE_DB_PATH):
+        return jsonify({
+            "response": "❌ База даних не знайдена. Зверніться до адміністратора.",
+            "session_id": session_id
+        }), 500
     # Rate-limit: не більше 5 запитів на сесію за 1 хвилину
     now = datetime.now()
     if 'rate_limit' not in conversation_histories[session_id]:
@@ -730,9 +743,19 @@ def ask():
     try:
         # Готуємо контекст для AI
         db_content = format_db_data_for_ai()
+        if not db_content or not db_content.get("components_catalog"):
+            return jsonify({
+                "response": "❌ Не вдалося отримати дані про комплектуючі.",
+                "session_id": session_id
+            }), 500
 
         # Якщо є бюджет, підбираємо компоненти максимально близько до бюджету
-        selected_components, total_price = select_components_for_budget(db_content, budget, currency)
+        try:
+            selected_components, total_price = select_components_for_budget(db_content, budget, currency)
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            selected_components, total_price = None, 0
         if budget:
             budget_usd = convert_budget_to_usd(budget, currency)
             user_message += f"\nБюджет: {format_price_all_currencies(budget_usd)}"
@@ -758,7 +781,12 @@ def ask():
 
         # Якщо є підібрані компоненти — форматувати відповідь красиво
         if selected_components:
-            bot_response = format_selected_pc_response(selected_components, total_price, budget)
+            try:
+                bot_response = format_selected_pc_response(selected_components, total_price, budget)
+            except Exception as e:
+                import traceback
+                print(traceback.format_exc())
+                bot_response = "❌ Помилка при форматуванні відповіді."
 
         session_history.append({"role": "assistant", "content": bot_response})
         if len(session_history) > 20:
