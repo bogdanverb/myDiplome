@@ -668,6 +668,27 @@ def format_price_all_currencies(price_usd):
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    # Получаем ID сессии из cookie
+    session_id = request.cookies.get('session_id')
+    user_message = request.form.get('message', '').strip()
+
+    # Если сессия не существует или устарела, создаем новую
+    if not session_id or session_id not in conversation_histories:
+        session_id = str(uuid.uuid4())
+        conversation_histories[session_id] = {
+            'messages': [],
+            'last_activity': datetime.now()
+        }
+
+    # Обновляем время последней активности
+    conversation_histories[session_id]['last_activity'] = datetime.now()
+
+    # Очистка старых сессий
+    cleanup_old_sessions()
+
+    # Получаем историю диалога для текущей сессии
+    session_history = conversation_histories[session_id]['messages']
+
     # Перевірка наявності ключа OpenAI
     if not OPENAI_API_KEY or len(OPENAI_API_KEY) < 10:
         return jsonify({
@@ -693,27 +714,6 @@ def ask():
             "session_id": session_id
         }), 429
     conversation_histories[session_id]['rate_limit'].append(now)
-    """Обработка запросов с учетом сессий"""
-    # Получаем ID сессии из cookie
-    session_id = request.cookies.get('session_id')
-    user_message = request.form.get('message', '').strip()
-    
-    # Если сессия не существует или устарела, создаем новую
-    if not session_id or session_id not in conversation_histories:
-        session_id = str(uuid.uuid4())
-        conversation_histories[session_id] = {
-            'messages': [],
-            'last_activity': datetime.now()
-        }
-    
-    # Обновляем время последней активности
-    conversation_histories[session_id]['last_activity'] = datetime.now()
-    
-    # Очистка старых сессий
-    cleanup_old_sessions()
-    
-    # Получаем историю диалога для текущей сессии
-    session_history = conversation_histories[session_id]['messages']
     
     # Проверяем запрос о курсах валют
     if handle_currency_query(user_message):
