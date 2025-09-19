@@ -1,10 +1,11 @@
 # app.py
+
 from flask import Flask, render_template, request, jsonify, url_for, session, make_response
 import uuid
-import mysql.connector
+import sqlite3
 import openai
 import json
-from config import MYSQL_CONFIG, OPENAI_API_KEY
+from config import SQLITE_DB_PATH, OPENAI_API_KEY
 import requests
 from datetime import datetime, timedelta
 
@@ -28,15 +29,10 @@ def cleanup_old_sessions():
 # Встановлюємо ключ OpenAI API
 openai.api_key = OPENAI_API_KEY
 
-# Функція для отримання з'єднання з MySQL
+# Функція для отримання з'єднання з SQLite
 def get_db_connection():
-    conn = mysql.connector.connect(
-        host=MYSQL_CONFIG['host'],
-        user=MYSQL_CONFIG['user'],
-        password=MYSQL_CONFIG['password'],
-        database=MYSQL_CONFIG['database'],
-        port=MYSQL_CONFIG['port']
-    )
+    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn.row_factory = sqlite3.Row
     return conn
 
 # Функція для уточнення запиту користувача за допомогою OpenAI API
@@ -70,50 +66,47 @@ def refine_search_query(query):
 # Універсальна функція пошуку по всіх таблицях бази даних із розбиттям запиту на ключові слова
 def universal_search_db(query):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     # Отримуємо список таблиць
-    cursor.execute("SHOW TABLES")
-    tables = [list(row.values())[0] for row in cursor.fetchall()]
-    
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [row[0] for row in cursor.fetchall()]
+
     search_results = []
-    # Розбиваємо уточнений запит на ключові слова
     tokens = query.split()
-    
+
     for table in tables:
         # Отримуємо опис таблиці для визначення текстових колонок
-        cursor.execute(f"DESCRIBE {table}")
+        cursor.execute(f"PRAGMA table_info({table})")
         columns = cursor.fetchall()
         text_columns = []
         for col in columns:
-            # Вважаємо текстовими поля, якщо тип містить "char", "text" або "enum"
-            if "char" in col['Type'] or "text" in col['Type'] or "enum":
-                text_columns.append(col['Field'])
+            # col[2] - тип поля
+            if "CHAR" in col[2].upper() or "TEXT" in col[2].upper():
+                text_columns.append(col[1])
         if not text_columns:
-            continue  # Таблиця не містить текстових полів
-        
-        # Формуємо умови пошуку для кожного ключового слова
+            continue
+
         conditions = []
         params = []
         for token in tokens:
             sub_conditions = []
             for col in text_columns:
-                sub_conditions.append(f"{col} LIKE %s")
-                params.append("%" + token + "%")
-            # Кожне слово має бути знайдене хоча б в одному з полів
+                sub_conditions.append(f"{col} LIKE ?")
+                params.append(f"%{token}%")
             conditions.append("(" + " OR ".join(sub_conditions) + ")")
-        
+
         if conditions:
             where_clause = " AND ".join(conditions)
             sql = f"SELECT * FROM {table} WHERE {where_clause}"
             try:
-                cursor.execute(sql, tuple(params))
+                cursor.execute(sql, params)
                 rows = cursor.fetchall()
                 if rows:
-                    search_results.extend(rows)
+                    search_results.extend([dict(row) for row in rows])
             except Exception as e:
                 print(f"Error querying table {table}: {e}")
                 continue
-    
+
     cursor.close()
     conn.close()
     return search_results
@@ -197,64 +190,57 @@ def format_db_data_for_ai():
         print(f"Error formatting data: {e}")
     finally:
         cursor.close()
-        conn.close()
-        
-    return structured_data
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-def create_ai_context():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    ai_context = {
-        "available_components": [],
-        "inventory_summary": {
-            "total_items": 0,
-            "categories": {},
-            "price_ranges": {}
-        },
-        "search_helpers": {
-            "component_types": [],
-            "manufacturers": [],
-            "common_queries": []
-        }
-    }
-
-    try:
-        cursor.execute("SELECT * FROM components")
-        components = cursor.fetchall()
-        
-        for item in components:
-            specs = json.loads(item['specs'])
-            
-            # Форматируем компонент
-            component = {
-                "name": item['name'],
-                "type": item['type'],
-                "price": float(item['price']),
-                "specs": specs,
-                "in_stock": True,  # Можно добавить реальную логику наличия
-                "description": item['description']
+        structured_data = {
+            "components_catalog": {
+                "cpu": [],
+                "gpu": [],
+                "ram": [],
+                "storage": [],
+                "other": []
+            },
+            "metadata": {
+                "categories": [],
+                "price_ranges": {},
+                "specifications_schema": {}
             }
-            
-            ai_context["available_components"].append(component)
-            
-            # Обновляем статистику
-            category = item['type']
-            ai_context["inventory_summary"]["categories"][category] = \
-                ai_context["inventory_summary"]["categories"].get(category, 0) + 1
-            
-            # Добавляем производителя
-            manufacturer = item['name'].split()[0]
-            if manufacturer not in ai_context["search_helpers"]["manufacturers"]:
-                ai_context["search_helpers"]["manufacturers"].append(manufacturer)
-                
-        ai_context["inventory_summary"]["total_items"] = len(components)
-        
-        return ai_context
-        
-    finally:
-        cursor.close()
-        conn.close()
+        }
+
+        try:
+            cursor.execute("SELECT * FROM components")
+            components = cursor.fetchall()
+            for component in components:
+                row = dict(component)
+                specs = json.loads(row['specs'])
+                category = row['type'].lower()
+                formatted_component = {
+                    "id": row['id'],
+                    "name": row['name'],
+                    "type": row['type'],
+                    "description": row['description'],
+                    "price": row['price'],
+                    "specs": specs,
+                    "performance_category": get_performance_category(row)
+                }
+                if category == "cpu":
+                    structured_data["components_catalog"]["cpu"].append(formatted_component)
+                elif category == "gpu":
+                    structured_data["components_catalog"]["gpu"].append(formatted_component)
+                elif category == "ram":
+                    structured_data["components_catalog"]["ram"].append(formatted_component)
+                elif category in ["ssd", "hdd"]:
+                    structured_data["components_catalog"]["storage"].append(formatted_component)
+                else:
+                    structured_data["components_catalog"]["other"].append(formatted_component)
+            # ...existing code...
+        except Exception as e:
+            print(f"Error formatting db data: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+        return structured_data
 
 def prepare_data_for_ai():
     conn = get_db_connection()

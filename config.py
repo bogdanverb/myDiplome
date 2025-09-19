@@ -1,15 +1,9 @@
 import os
 from datetime import timedelta
 
-# Конфигурация MySQL
-MYSQL_CONFIG = {
-    'host': os.getenv('MYSQL_HOST', 'localhost'),
-    'user': os.getenv('MYSQL_USER', 'root'),
-    'password': os.getenv('MYSQL_PASSWORD', ''),
-    'database': os.getenv('MYSQL_DATABASE', ''),
-    'port': int(os.getenv('MYSQL_PORT', 3306)),
-    'raise_on_warnings': True
-}
+
+# Конфігурація SQLite
+SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH', 'db.sqlite3')
 
 # API ключ для OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
