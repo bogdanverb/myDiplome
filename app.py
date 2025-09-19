@@ -621,6 +621,11 @@ def index():
         'last_activity': datetime.now()
     }
     
+    welcome_msg = (
+        "Доброго дня! 😊 Я ваш онлайн ШІ консультант. Можу підбирати, порівнювати, збирати ПК, рекомендувати комплектуючі та давати поради. "
+        "Вкажіть ваш бюджет або опишіть, що саме вам потрібно — і я допоможу!"
+    )
+    conversation_histories[session_id]['messages'].append({"role": "assistant", "content": welcome_msg})
     return response
 
 # Добавим словарь приветствий
